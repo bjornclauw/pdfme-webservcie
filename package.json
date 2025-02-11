@@ -1,0 +1,31 @@
+{
+  "name": "pdfme-webservice",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "rootzoll",
+  "license": "MIT",
+  "description": "pdfme PDF generation wrapped into a a stateless dockered swagger API for simple PDF customization",
+  "dependencies": {
+    "@pdfme/common": "^5.3.5",
+    "@pdfme/generator": "^5.3.5",
+    "core-js": "^3.40.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "glob": "^11.0.1",
+    "multer": "^1.4.5-lts.1",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
