@@ -21,6 +21,20 @@ docker pull rootzoll/pdfme-webservice:latest
 docker run --name pdfme-webservice -p 6439:6439 rootzoll/pdfme-webservice:latest
 ```
 
+## Install Docker Compose
+
+```
+version: "3.3"
+services:
+  pdfme-webservice:
+    container_name: pdfme-webservice
+    restart: unless-stopped
+    ports:
+      - 6439:6439
+    image: rootzoll/pdfme-webservice:latest
+networks: {}
+```
+
 ## Installation for local Development & Docker Build
 
 ### Prerequisites
@@ -71,6 +85,5 @@ docker run --name pdfme-webservice -p 6439:6439 pdfme-webservice
 When a new docker version was build - upload image to docker hub:
 
 ```
-docker tag pdfme-webservice rootzoll/pdfme-webservice:latest
-docker push rootzoll/pdfme-webservice:latest
+docker buildx build --platform linux/amd64,linux/arm64 -t rootzoll/pdfme-webservice:latest --push .
 ```
