@@ -2,6 +2,8 @@
 
 A stateless REST API service that wraps the [PDFme](https://pdfme.com/) template engine to generate PDFs from templates.
 
+PDFme template + input values --> Generated PDF 
+
 ## Features
 
 - Generate PDFs from PDFme templates
