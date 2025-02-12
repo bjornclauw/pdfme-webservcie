@@ -51,8 +51,7 @@ networks: {}
 In the project directory:
 
 ```
-nvm install 20
-nvm use 20
+nvm use
 npm install
 ```
 
