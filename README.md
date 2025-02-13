@@ -81,7 +81,7 @@ docker run --name pdfme-webservice -p 6439:6439 pdfme-webservice
 
 ### Project Maintanace
 
-When a new docker version was build - upload image to docker hub:
+Upload new image to docker hub:
 
 ```
 docker buildx build --platform linux/amd64,linux/arm64 -t rootzoll/pdfme-webservice:latest --push .
