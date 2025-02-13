@@ -117,14 +117,15 @@ app.post('/generate-pdf', async (req, res) => {
       ...req.query
     };
 
-    // Extract default values from schema and merge with any provided input values
-    const templateInputs = schemas.map(page => {
-      const pageData = {};
+    // Create a single inputs array with one object containing all field values
+    const templateInputs = [{}];  // Single input object for all pages
+    
+    // Collect all field values across all pages into the single input object
+    schemas.forEach((page, pageIndex) => {
       page.forEach(field => {
         // Use query param or body input if provided, otherwise use default content
-        pageData[field.name] = mergedInputs[field.name] || field.content || '';
+        templateInputs[0][field.name] = mergedInputs[field.name] || field.content || '';
       });
-      return pageData;
     });
 
     // Generate initial PDF with PDFme
