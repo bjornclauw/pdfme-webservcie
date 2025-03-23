@@ -2,11 +2,14 @@ const express = require('express');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const cors = require('cors');
+const { text, image, barcodes } = require('@pdfme/schemas');
 const { generate } = require('@pdfme/generator');
 const fs = require('fs');
 const path = require('path');
 const { PDFDocument } = require('pdf-lib');
 const multer = require('multer');
+const axios = require('axios');
+const { Buffer } = require('buffer');
 
 // Configure multer for PDF file uploads
 const upload = multer({
@@ -51,7 +54,7 @@ app.get('/', (req, res) => {
  * @swagger
  * /generate-pdf:
  *   post:
- *     summary: Generate PDF from PDFme template and overide with input values
+ *     summary: Generate PDF with image included
  *     parameters:
  *       - in: query
  *         name: input values
@@ -97,17 +100,17 @@ app.get('/', (req, res) => {
  */
 app.post('/generate-pdf', async (req, res) => {
   try {
-    const { schemas, basePdf, inputs = {} } = req.body;
+    const { schemas, inputs = {} } = req.body;
 
-    if (!basePdf || !schemas) {
+    if (!schemas) {
       return res.status(400).json({ 
-        error: 'Template schema with basePdf and schemas is required' 
+        error: 'Template schema is required' 
       });
     }
 
     // Create the template object in the format expected by pdfme
     const template = {
-      basePdf,
+      basePdf: BLANK_PDF,
       schemas
     };
 
@@ -123,15 +126,33 @@ app.post('/generate-pdf', async (req, res) => {
     // Collect all field values across all pages into the single input object
     schemas.forEach((page, pageIndex) => {
       page.forEach(field => {
-        // Use query param or body input if provided, otherwise use default content
-        templateInputs[0][field.name] = mergedInputs[field.name] || field.content || '';
+        if (field.type === 'image' && field.src) {
+          // If image field is specified, download the image and convert it to base64
+          axios.get(field.src, { responseType: 'arraybuffer' })
+            .then(response => {
+              // Convert the image data to base64
+              const imageBase64 = Buffer.from(response.data, 'binary').toString('base64');
+              templateInputs[0][field.name] = imageBase64;
+            })
+            .catch(error => {
+              console.error('Error downloading image:', error);
+            });
+        } else {
+          // For non-image fields, use the input value or fallback to template content
+          templateInputs[0][field.name] = mergedInputs[field.name] || field.content || '';
+        }
       });
     });
 
     // Generate initial PDF with PDFme
     const pdfmeResult = await generate({ 
       template, 
-      inputs: templateInputs
+      inputs: templateInputs,
+      plugins: {
+        text,
+        image,
+        qrcode: barcodes.qrcode,
+      }
     });
 
     // Load the generated PDF into pdf-lib to add metadata
@@ -153,176 +174,7 @@ app.post('/generate-pdf', async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /protokoll-pdf:
- *   post:
- *     summary: Generate a simple PDF with provided text content
- *     requestBody:
- *       required: true
- *       content:
- *         text/plain:
- *           schema:
- *             type: string
- *             description: The text content to be included in the PDF
- *           example: "This is a sample text that will be rendered in the PDF."
- *     responses:
- *       200:
- *         description: Generated PDF file
- *         content:
- *           application/pdf:
- *             schema:
- *               type: string
- *               format: binary
- *       400:
- *         description: Invalid input parameters
- *       500:
- *         description: Server error
- */
-app.post('/protokoll-pdf', async (req, res) => {
-  try {
-    const text = req.body;  // body is now the raw text
-
-    if (!text) {
-      return res.status(400).json({ 
-        error: 'Text content is required in the request body' 
-      });
-    }
-
-    // Create a simple template for text content
-    const template = {
-      basePdf: BLANK_PDF,
-      schemas: [
-        [
-          {
-            type: 'text',
-            position: { x: 15, y: 20 },
-            width: 180,
-            height: 260,
-            name: 'content',
-            fontName: 'Helvetica',
-            fontColor: '#000000',
-            alignment: 'left',
-            lineHeight: 1.2,
-            characterSpacing: 0,
-            opacity: 1,
-            rotate: 0,
-            padding: 10,
-            verticalAlignment: 'top',
-            //backgroundColor: '#F5F5F5',
-            autoFit: true,
-            fontSize: 10,
-            maxFontSize: 11,
-            minFontSize: 6,
-            wrapText: true
-          }
-        ]
-      ]
-    };
-    
-
-    // Process the text to ensure proper line breaks
-    const processedText = text
-      .split(/\r?\n/)  // Split into lines
-      .map(line => line.trim())  // Trim each line
-      .join('\n');  // Rejoin with newlines
-
-    const inputs = [
-      {
-        content: processedText
-      }
-    ];
-
-    // Generate initial PDF with PDFme
-    const pdfmeResult = await generate({ 
-      template, 
-      inputs
-    });
-
-    // Load the generated PDF into pdf-lib
-    const pdfDoc = await PDFDocument.load(pdfmeResult.buffer);
-    
-    // Set the subject metadata without length limitation
-    pdfDoc.setSubject(processedText);
-    
-    // Save the modified PDF
-    const modifiedPdfBytes = await pdfDoc.save();
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename=protokoll.pdf');
-    res.send(Buffer.from(modifiedPdfBytes));
-  } catch (error) {
-    console.error('PDF generation error:', error);
-    res.status(500).json({ error: 'Failed to generate PDF' });
-  }
-});
-
-/**
- * @swagger
- * /extract-metadata:
- *   post:
- *     summary: Extract metadata from an uploaded PDF file
- *     requestBody:
- *       required: true
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             properties:
- *               pdf:
- *                 type: string
- *                 format: binary
- *                 description: The PDF file to extract metadata from
- *     responses:
- *       200:
- *         description: PDF metadata
- *         content:
- *           text/plain:
- *             schema:
- *               type: string
- *       400:
- *         description: Invalid input or no PDF file provided
- *       413:
- *         description: PDF file too large (max 10MB)
- *       500:
- *         description: Server error
- */
-app.post('/extract-metadata', upload.single('pdf'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ 
-        error: 'No PDF file provided. Please upload a PDF file with field name "pdf".' 
-      });
-    }
-
-    try {
-      // Load the PDF document
-      const pdfDoc = await PDFDocument.load(req.file.buffer);
-      
-      // Get only the subject metadata
-      const subject = pdfDoc.getSubject();
-      
-      // Return just the subject as plain text
-      res.setHeader('Content-Type', 'text/plain');
-      res.send(subject || '');
-      
-    } catch (pdfError) {
-      console.error('PDF parsing error:', pdfError);
-      res.status(400).json({ 
-        error: 'Failed to parse PDF file',
-        details: pdfError.message 
-      });
-    }
-  } catch (error) {
-    console.error('PDF metadata extraction error:', error);
-    res.status(500).json({ 
-      error: 'Failed to extract PDF metadata',
-      details: error.message 
-    });
-  }
-});
-
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
   console.log(`Swagger documentation available at http://localhost:${port}/api-docs`);
-}); 
+});
