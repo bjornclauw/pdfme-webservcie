@@ -14,6 +14,8 @@
   "dependencies": {
     "@pdfme/common": "^5.3.5",
     "@pdfme/generator": "^5.3.5",
+    "@pdfme/schemas": "^5.3.5",
+    "axios": "^1.0.0",
     "core-js": "^3.40.0",
     "cors": "^2.8.5",
     "express": "^4.21.2",
